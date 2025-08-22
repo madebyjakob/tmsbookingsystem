@@ -152,3 +152,4 @@ JOIN customers c ON j.customer_id = c.id;
 -- Grant necessary permissions (adjust based on your Supabase setup)
 -- These are typically handled automatically by Supabase
 
+
