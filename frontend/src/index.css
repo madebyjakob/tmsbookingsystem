@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+:root{
+  --gradient-primary: var(linear-gradient(135deg, rgb(0, 212, 255), rgb(0, 153, 204)));
+}
+
+/* Custom Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Animation Classes */
+.animate-fadeIn {
+  animation: fadeIn 0.8s ease-out;
+}
+
+.animate-fadeInDown {
+  animation: fadeInDown 0.8s ease-out;
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.8s ease-out;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.8s ease-out;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.8s ease-out;
+}
+
+.animate-slideInUp {
+  animation: slideInUp 0.8s ease-out;
+}
+
+.animate-bounceIn {
+  animation: bounceIn 0.8s ease-out;
+}
+
+/* Staggered animations for form rows */
+.animate-slideInLeft:nth-child(1) { animation-delay: 0.1s; }
+.animate-slideInRight:nth-child(2) { animation-delay: 0.2s; }
+.animate-slideInLeft:nth-child(3) { animation-delay: 0.3s; }
+.animate-slideInRight:nth-child(4) { animation-delay: 0.4s; }
+.animate-slideInUp:nth-child(5) { animation-delay: 0.5s; }
+
+/* Hover effects for form inputs */
+.hover\:bg-gray-750:hover {
+  background-color: #374151;
+}
+
+/* Smooth transitions */
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Focus animations */
+.focus\:scale-105:focus {
+  transform: scale(1.05);
+}
+
+/* Button hover effects */
+.hover\:from-\[#00AFDF\]:hover {
+  --tw-gradient-from: #00AFDF;
+}
+
+.hover\:to-\[#00BFEC\]:hover {
+  --tw-gradient-to: #00BFEC;
+}
