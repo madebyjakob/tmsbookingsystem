@@ -15,6 +15,7 @@ export default function BookingForm() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [adminMode, setAdminMode] = useState(false)
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -80,7 +81,18 @@ export default function BookingForm() {
   return (
     <div className='bg-gray-900 py-16 px-5'>
       <div className='max-w-2xl mx-auto'>
-        <h2 className='text-3xl font-bold bg-gradient-to-r from-[#00BFEC] to-[#00AFDF] text-transparent bg-clip-text text-center mb-8 animate-fadeInDown'>
+        {adminMode && (
+            <div className="text-center mb-4">
+              <button 
+                onClick={() => window.location.href = '/admin'}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+              >
+                Admin Dashboard
+              </button>
+            </div>
+          )}
+        <h2 className='text-3xl font-bold bg-gradient-to-r from-[#00BFEC] to-[#00AFDF] text-transparent bg-clip-text text-center mb-8 animate-fadeInDown'
+        onDoubleClick={() => setAdminMode(!adminMode)}>
           Boka Service
         </h2>
         
