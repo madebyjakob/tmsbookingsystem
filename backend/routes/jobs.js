@@ -682,7 +682,7 @@ router.get('/overdue/all', async (req, res) => {
         )
       `)
       .lt('scheduled_date', new Date().toISOString())
-      .not('status', 'in', ['completed', 'cancelled'])
+      .not('status', 'in', '(completed,cancelled)')
       .order('scheduled_date', { ascending: true });
 
     if (error) {

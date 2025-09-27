@@ -92,7 +92,7 @@ export default function Admindashboard() {
         <section className="border border-black/10 rounded-md bg-white">
           <div className="px-4 py-3 border-b border-black/10 flex items-center justify-between">
             <h3 className="text-base font-medium">Latest Jobs</h3>
-            <a href="/admin/jobs" className="text-sm underline">View all</a>
+            <a href="#jobs" className="text-sm underline">View all</a>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -131,7 +131,7 @@ export default function Admindashboard() {
         <section className="border border-black/10 rounded-md bg-white">
           <div className="px-4 py-3 border-b border-black/10 flex items-center justify-between">
             <h3 className="text-base font-medium">Latest Customers</h3>
-            <a href="/admin/customers" className="text-sm underline">View all</a>
+            <a href="#customers" className="text-sm underline">View all</a>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

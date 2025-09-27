@@ -8,9 +8,9 @@ export default function Adminnavbar() {
         <h1 className="text-xl font-semibold tracking-tight">Täby Mopedservice AdminPanel</h1>
         <nav className="text-sm">
           <ul className="flex items-center gap-6">
-            <li><a href="/admin" className="hover:underline">Dashboard</a></li>
-            <li><a href="/admin/jobs" className="hover:underline">Jobs</a></li>
-            <li><a href="/admin/customers" className="hover:underline">Customers</a></li>
+            <li><a href="#dashboard" className="hover:underline">Dashboard</a></li>
+            <li><a href="#jobs" className="hover:underline">Jobs</a></li>
+            <li><a href="#customers" className="hover:underline">Customers</a></li>
           </ul>
         </nav>
       </div>

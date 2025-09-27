@@ -4,6 +4,12 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 require('dotenv').config();
 
+console.log('Environment check:', {
+  SUPABASE_URL: process.env.VITE_SUPABASE_URL ? 'Set' : 'Missing',
+  SUPABASE_SERVICE_ROLE_KEY: process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Missing',
+  SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Missing'
+});
+
 const { testConnection } = require('./config/supabase');
 const errorHandler = require('./middleware/errorHandler');
 const customerRoutes = require('./routes/customers');
