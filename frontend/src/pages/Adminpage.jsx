@@ -1,6 +1,7 @@
 import React from 'react'
 import Admindashboard from '../components/admin/Admindashboard'
 import Jobspage from '../components/admin/Jobspage'
+import CustomersPage from '../components/admin/CustomersPage'
 import Adminnavbar from '../components/admin/Adminnavbar'
 
 export default function Adminpage() {
@@ -11,6 +12,8 @@ export default function Adminpage() {
     const hash = window.location.hash
     if (hash === '#jobs') {
       setCurrentView('jobs')
+    } else if (hash === '#customers') {
+      setCurrentView('customers')
     } else {
       setCurrentView('dashboard')
     }
@@ -20,6 +23,8 @@ export default function Adminpage() {
       const newHash = window.location.hash
       if (newHash === '#jobs') {
         setCurrentView('jobs')
+      } else if (newHash === '#customers') {
+        setCurrentView('customers')
       } else {
         setCurrentView('dashboard')
       }
@@ -33,6 +38,8 @@ export default function Adminpage() {
     switch (currentView) {
       case 'jobs':
         return <Jobspage />
+      case 'customers':
+        return <CustomersPage />
       default:
         return <Admindashboard />
     }
