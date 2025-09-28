@@ -8,19 +8,25 @@
     "dev": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["express", "supabase", "postgresql", "booking", "system"],
+  "keywords": [
+    "express",
+    "supabase",
+    "postgresql",
+    "booking",
+    "system"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
     "@supabase/supabase-js": "^2.38.0",
+    "axios": "^1.5.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "helmet": "^7.0.0",
-    "morgan": "^1.10.0",
-    "axios": "^1.5.0"
+    "morgan": "^1.10.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.1.10"
   }
 }
