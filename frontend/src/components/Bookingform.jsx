@@ -4,7 +4,7 @@ export default function BookingForm() {
   const [formData, setFormData] = useState({
     firstName: 'Test',
     lastName: 'User',
-    email: 'test.user@example.com',
+    email: 'john.doe@example.com',
     phone: '+46701234567',
     addressStreet: 'Testgatan 1',
     addressCity: 'Teststad',
@@ -99,36 +99,75 @@ export default function BookingForm() {
         }
       }
 
-      try {
-        const customerResponse = await fetch(`${baseUrl}/customers`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(customerData)
-        })
-        if (!customerResponse.ok) {
-          // Try to parse backend error
-          const errorData = await customerResponse.json()
-          if (errorData.error && errorData.error.includes('already exists')) {
-            // Fetch the customer by email using the search endpoint
-            const existingCustomerResponse = await fetch(`${baseUrl}/customers?search=${encodeURIComponent(formData.email)}`)
-            if (existingCustomerResponse.ok) {
-              const data = await existingCustomerResponse.json()
-              if (data.customers && data.customers.length > 0) {
-                customer = data.customers.find(c => c.email.toLowerCase() === formData.email.trim().toLowerCase()) || data.customers[0]
-              }
-            }
-            if (!customer) throw new Error('Customer with this email already exists')
-          } else {
-            throw new Error(errorData.error || 'Failed to create customer')
-          }
-        } else {
-          customer = await customerResponse.json()
-        }
-      } catch (error) {
-        throw error
-      }
+       try {
+         const customerResponse = await fetch(`${baseUrl}/customers`, {
+           method: 'POST',
+           headers: {
+             'Content-Type': 'application/json'
+           },
+           body: JSON.stringify(customerData)
+         })
+         
+         if (customerResponse.ok) {
+           customer = await customerResponse.json()
+           console.log('Customer created successfully:', customer)
+         } else {
+           // Try to parse backend error
+           const errorData = await customerResponse.json()
+           console.log('Customer creation failed:', errorData)
+           
+           if (errorData.error && errorData.error.includes('already exists')) {
+             console.log('Customer already exists, searching for existing customer...')
+             console.log('Searching for email:', formData.email)
+             
+             // Try multiple search approaches
+             const searchQueries = [
+               `${baseUrl}/customers?search=${encodeURIComponent(formData.email)}`,
+               `${baseUrl}/customers?search=${encodeURIComponent(formData.email.trim())}`,
+               `${baseUrl}/customers?search=${encodeURIComponent(formData.email.toLowerCase())}`
+             ]
+             
+             for (const searchUrl of searchQueries) {
+               console.log('Trying search URL:', searchUrl)
+               const existingCustomerResponse = await fetch(searchUrl)
+               console.log('Search response status:', existingCustomerResponse.status)
+               
+               if (existingCustomerResponse.ok) {
+                 const data = await existingCustomerResponse.json()
+                 console.log('Search results:', data)
+                 if (data.customers && data.customers.length > 0) {
+                   customer = data.customers.find(c => c.email.toLowerCase() === formData.email.trim().toLowerCase()) || data.customers[0]
+                   console.log('Found existing customer:', customer)
+                   if (customer) break
+                 }
+               } else {
+                 console.error('Failed to search for existing customer:', existingCustomerResponse.status)
+               }
+             }
+             
+             if (!customer) {
+               // As a last resort, try to get all customers and find by email
+               console.log('Trying to get all customers as fallback...')
+               const allCustomersResponse = await fetch(`${baseUrl}/customers?limit=1000`)
+               if (allCustomersResponse.ok) {
+                 const allData = await allCustomersResponse.json()
+                 console.log('All customers:', allData)
+                 customer = allData.customers?.find(c => c.email.toLowerCase() === formData.email.trim().toLowerCase())
+                 console.log('Found customer in all customers:', customer)
+               }
+             }
+             
+             if (!customer) {
+               throw new Error('Customer with this email already exists but could not be found')
+             }
+           } else {
+             throw new Error(errorData.error || 'Failed to create customer')
+           }
+         }
+       } catch (error) {
+         console.error('Customer creation/fetch error:', error)
+         throw error
+       }
       
       // Estimate duration using AI (placeholder implementation)
       const vehicleInfo = {
