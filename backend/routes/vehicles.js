@@ -89,17 +89,17 @@ router.post('/', async (req, res) => {
   try {
     const vehicleData = req.body;
 
-    // Validate vehicle data
-    const validationErrors = validateVehicle(vehicleData);
+    // Transform data for Supabase first
+    const supabaseData = transformToSupabase(vehicleData);
+
+    // Validate transformed vehicle data
+    const validationErrors = validateVehicle(supabaseData);
     if (validationErrors.length > 0) {
       return res.status(400).json({ 
         error: 'Validation failed', 
         details: validationErrors 
       });
     }
-
-    // Transform data for Supabase
-    const supabaseData = transformToSupabase(vehicleData);
 
     const { data, error } = await supabase
       .from(vehicleTable)

@@ -340,9 +340,12 @@ router.post('/:id/vehicles', async (req, res) => {
     const { id } = req.params;
     const vehicleData = req.body;
 
-    // Validate vehicle data
+    // Transform vehicle data first
     const { validateVehicle, transformToSupabase: transformVehicle } = require('../models/Vehicle');
-    const validationErrors = validateVehicle(vehicleData);
+    const supabaseVehicleData = transformVehicle(vehicleData);
+    
+    // Validate transformed vehicle data
+    const validationErrors = validateVehicle(supabaseVehicleData);
     if (validationErrors.length > 0) {
       return res.status(400).json({ 
         error: 'Validation failed', 
@@ -351,7 +354,6 @@ router.post('/:id/vehicles', async (req, res) => {
     }
 
     // Create vehicle
-    const supabaseVehicleData = transformVehicle(vehicleData);
     const { data: newVehicle, error: vehicleError } = await supabase
       .from('vehicles')
       .insert([supabaseVehicleData])

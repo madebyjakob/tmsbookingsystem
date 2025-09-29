@@ -185,17 +185,19 @@ export default function BookingForm() {
       
       // Only create vehicle if vehicle fields are filled
       let vehicleId = null
-      if (formData.vehicleMake.trim() && formData.vehicleModel.trim() && formData.vehicleYear.trim() && formData.vehicleLicensePlate.trim()) {
+      const hasVehicleData = formData.vehicleMake.trim() && formData.vehicleModel.trim() && formData.vehicleYear.trim() && formData.vehicleLicensePlate.trim()
+      
+      if (hasVehicleData) {
         // First, check if vehicle already exists by license plate
+        const licensePlate = formData.vehicleLicensePlate.toUpperCase().trim()
         try {
-          const vehicleSearchResponse = await fetch(`${baseUrl}/vehicles/search/${encodeURIComponent(formData.vehicleLicensePlate.toUpperCase().trim())}`)
+          const vehicleSearchResponse = await fetch(`${baseUrl}/vehicles/search/${encodeURIComponent(licensePlate)}`)
           if (vehicleSearchResponse.ok) {
             const existingVehicle = await vehicleSearchResponse.json()
             vehicleId = existingVehicle.id
-            console.log('Found existing vehicle:', existingVehicle)
           }
         } catch {
-          console.log('No existing vehicle found, will create new one')
+          // No existing vehicle found, will create new one
         }
         
         // If vehicle doesn't exist, create it
@@ -216,12 +218,12 @@ export default function BookingForm() {
           })
           
           if (!vehicleResponse.ok) {
-            throw new Error('Failed to create vehicle')
+            const errorData = await vehicleResponse.json()
+            throw new Error(`Failed to create vehicle: ${JSON.stringify(errorData)}`)
           }
           
           const newVehicle = await vehicleResponse.json()
           vehicleId = newVehicle.id
-          console.log('Created new vehicle:', newVehicle)
           
           // Add vehicle to customer
           const addVehicleResponse = await fetch(`${baseUrl}/customers/${customerToUse.id}/vehicles`, {
@@ -236,21 +238,11 @@ export default function BookingForm() {
             console.warn('Failed to add vehicle to customer, but continuing with booking')
           }
         }
-      } else {
-        console.log('No vehicle information provided, skipping vehicle creation')
       }
       
       // Estimate duration using AI (placeholder implementation)
-      const vehicleInfo = vehicleId ? {
-        make: formData.vehicleMake.trim(),
-        model: formData.vehicleModel.trim(),
-        year: formData.vehicleYear
-      } : null
-      
       const estimatedDuration = await estimateDurationWithAI(
-        formData.serviceType,
-        formData.description.trim(),
-        vehicleInfo
+        formData.serviceType
       )
       
       // Create job
@@ -264,8 +256,6 @@ export default function BookingForm() {
         status: 'pending'
       }
       
-      console.log('Creating job for customer:', customerToUse.firstName, customerToUse.lastName, vehicleId ? `with vehicle: ${formData.vehicleMake} ${formData.vehicleModel}` : 'without vehicle information')
-      
       const jobResponse = await fetch(`${baseUrl}/jobs`, {
         method: 'POST',
         headers: {
@@ -275,14 +265,14 @@ export default function BookingForm() {
       })
       
       if (!jobResponse.ok) {
-        throw new Error('Failed to create job')
+        const errorData = await jobResponse.json()
+        throw new Error(`Failed to create job: ${JSON.stringify(errorData)}`)
       }
       
       setIsSubmitting(false)
       setIsSubmitted(true)
       
       // Show success message
-      console.log('Booking successful! Job created for customer:', customerToUse.firstName, customerToUse.lastName)
       
       // Reset form after showing success message
       setTimeout(() => {
@@ -344,13 +334,9 @@ export default function BookingForm() {
   }
 
   // AI Duration Estimation Function (placeholder for future implementation)
-  const estimateDurationWithAI = async (serviceType, description, vehicleInfo) => {
+  const estimateDurationWithAI = async (serviceType) => {
     // TODO: Implement OpenAI integration
     // This is a placeholder that returns a reasonable default based on service type
-    
-    console.log('AI Duration Estimation - Service:', serviceType)
-    console.log('AI Duration Estimation - Description:', description)
-    console.log('AI Duration Estimation - Vehicle:', vehicleInfo || 'No vehicle information')
     
     const durationMap = {
       'repair': 2.5, // Repairs typically take 2-3 hours
@@ -372,7 +358,6 @@ export default function BookingForm() {
         const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
         
         // First, check if customer already exists by email OR phone
-        console.log('Checking for existing customer by email or phone...')
         
         // Search by email
         const emailSearchResponse = await fetch(`${baseUrl}/customers?search=${encodeURIComponent(formData.email.trim())}`)
@@ -401,11 +386,8 @@ export default function BookingForm() {
         const matchType = existingCustomerByEmail ? 'email' : 'phone'
         
         if (existingCustomer) {
-          console.log(`Found existing customer by ${matchType}:`, existingCustomer)
-          
           // Check if credentials match
           const credentialCheck = checkCredentialsMatch(formData, existingCustomer, matchType)
-          console.log('Credential check result:', credentialCheck)
           
           if (!credentialCheck.matches) {
             // Credentials don't match - show confirmation modal
@@ -417,13 +399,11 @@ export default function BookingForm() {
           }
           
           // Credentials match - proceed with booking (vehicle will be created/added separately)
-          console.log('Credentials match, proceeding with booking...')
           await proceedWithBooking(existingCustomer)
           return
         }
         
         // No existing customer found - create new one
-        console.log('No existing customer found, creating new customer...')
         const customerData = {
           firstName: formData.firstName.trim(),
           lastName: formData.lastName.trim(),
@@ -451,7 +431,6 @@ export default function BookingForm() {
         }
         
         const newCustomer = await customerResponse.json()
-        console.log('Customer created successfully:', newCustomer)
         
         // Proceed with booking using new customer
         await proceedWithBooking(newCustomer)
@@ -459,7 +438,7 @@ export default function BookingForm() {
     } catch (error) {
       console.error('Booking error:', error)
       setIsSubmitting(false)
-      alert('Ett fel uppstod vid bokningen. Försök igen eller kontakta oss direkt.')
+      alert(`Ett fel uppstod vid bokningen: ${error.message}. Försök igen eller kontakta oss direkt.`)
     }
   }
 
