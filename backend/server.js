@@ -15,6 +15,7 @@ const errorHandler = require('./middleware/errorHandler');
 const customerRoutes = require('./routes/customers');
 const vehicleRoutes = require('./routes/vehicles');
 const jobRoutes = require('./routes/jobs');
+const aiRoutes = require('./routes/ai');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,6 +34,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/customers', customerRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/jobs', jobRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

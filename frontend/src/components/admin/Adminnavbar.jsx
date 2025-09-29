@@ -11,6 +11,7 @@ export default function Adminnavbar() {
             <li><a href="#dashboard" className="hover:underline">Dashboard</a></li>
             <li><a href="#jobs" className="hover:underline">Jobs</a></li>
             <li><a href="#customers" className="hover:underline">Customers</a></li>
+            <li><a href="#ai-config" className="hover:underline">AI Config</a></li>
           </ul>
         </nav>
       </div>

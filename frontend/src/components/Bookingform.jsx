@@ -333,20 +333,29 @@ export default function BookingForm() {
     }
   }
 
-  // AI Duration Estimation Function (placeholder for future implementation)
+  // AI Duration Estimation Function (calls backend; backend uses OpenAI if key set, else heuristic)
   const estimateDurationWithAI = async (serviceType) => {
-    // TODO: Implement OpenAI integration
-    // This is a placeholder that returns a reasonable default based on service type
-    
-    const durationMap = {
-      'repair': 2.5, // Repairs typically take 2-3 hours
-      'maintenance': 1.5, // Regular maintenance 1-2 hours
-      'inspection': 1, // Inspections usually 1 hour
-      'other': 2 // Default for other services
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+    try {
+      const response = await fetch(`${baseUrl}/ai/estimate-duration`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceType,
+          vehicleMake: formData.vehicleMake,
+          vehicleModel: formData.vehicleModel,
+          vehicleYear: formData.vehicleYear,
+          description: formData.description
+        })
+      })
+      if (response.ok) {
+        const data = await response.json()
+        return data.estimatedHours ?? 2
+      }
+    } catch {
+      // fall back to simple map below if backend unavailable
     }
-    
-    // For now, return a default duration based on service type
-    // In the future, this will call OpenAI with the description and vehicle info
+    const durationMap = { repair: 2.5, maintenance: 1.5, inspection: 1, other: 2 }
     return durationMap[serviceType] || 2
   }
 

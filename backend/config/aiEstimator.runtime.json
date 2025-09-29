@@ -1,0 +1,14 @@
+{
+  "serviceTypeBaseHours": {},
+  "keywordAdjustments": [],
+  "minHours": null,
+  "maxHours": null,
+  "roundToMinutes": null,
+  "openAI": {
+    "enabled": null,
+    "model": null,
+    "temperature": null
+  }
+}
+
+
