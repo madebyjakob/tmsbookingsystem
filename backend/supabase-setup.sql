@@ -4,6 +4,16 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Create vehicles table
+CREATE TABLE IF NOT EXISTS vehicles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    vehicle_make TEXT NOT NULL,
+    vehicle_model TEXT NOT NULL,
+    vehicle_year TEXT NOT NULL,
+    vehicle_license_plate TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create customers table
 CREATE TABLE IF NOT EXISTS customers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -14,10 +24,7 @@ CREATE TABLE IF NOT EXISTS customers (
     address_street TEXT NOT NULL,
     address_city TEXT NOT NULL,
     address_postal_code TEXT NOT NULL,
-    vehicle_make TEXT NOT NULL,
-    vehicle_model TEXT NOT NULL,
-    vehicle_year INTEGER NOT NULL CHECK (vehicle_year >= 1900 AND vehicle_year <= EXTRACT(YEAR FROM NOW()) + 1),
-    vehicle_license_plate TEXT UNIQUE NOT NULL,
+    vehicle_ids UUID[] DEFAULT '{}', -- Array of vehicle UUIDs
     notes TEXT CHECK (length(notes) <= 500),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -46,9 +53,11 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 
 -- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_vehicles_license_plate ON vehicles(vehicle_license_plate);
+CREATE INDEX IF NOT EXISTS idx_vehicles_make_model ON vehicles(vehicle_make, vehicle_model);
 CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
 CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(last_name, first_name);
-CREATE INDEX IF NOT EXISTS idx_customers_license_plate ON customers(vehicle_license_plate);
+CREATE INDEX IF NOT EXISTS idx_customers_vehicle_ids ON customers USING GIN(vehicle_ids);
 CREATE INDEX IF NOT EXISTS idx_jobs_customer_id ON jobs(customer_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_scheduled_date ON jobs(scheduled_date);
@@ -88,8 +97,13 @@ CREATE TRIGGER calculate_job_cost_total_trigger
     FOR EACH ROW EXECUTE FUNCTION calculate_job_cost_total();
 
 -- Create RLS (Row Level Security) policies
+ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
+
+-- Policy for vehicles table (allow all operations for now - customize based on your auth needs)
+CREATE POLICY "Allow all operations on vehicles" ON vehicles
+    FOR ALL USING (true);
 
 -- Policy for customers table (allow all operations for now - customize based on your auth needs)
 CREATE POLICY "Allow all operations on customers" ON customers
@@ -100,22 +114,38 @@ CREATE POLICY "Allow all operations on jobs" ON jobs
     FOR ALL USING (true);
 
 -- Insert some sample data for testing
-INSERT INTO customers (
-    first_name, 
-    last_name, 
-    email, 
-    phone, 
-    address_street, 
-    address_city, 
-    address_postal_code, 
-    vehicle_make, 
-    vehicle_model, 
-    vehicle_year, 
-    vehicle_license_plate
-) VALUES 
-    ('John', 'Doe', 'john.doe@example.com', '+46701234567', 'Main Street 123', 'Stockholm', '12345', 'Honda', 'CBR600RR', 2020, 'ABC123'),
-    ('Jane', 'Smith', 'jane.smith@example.com', '+46701234568', 'Oak Avenue 456', 'Gothenburg', '54321', 'Yamaha', 'YZF-R6', 2021, 'DEF456')
-ON CONFLICT (email) DO NOTHING;
+-- First insert vehicles
+INSERT INTO vehicles (vehicle_make, vehicle_model, vehicle_year, vehicle_license_plate) VALUES 
+    ('Honda', 'CBR600RR', '2020', 'ABC123'),
+    ('Yamaha', 'YZF-R6', '2021', 'DEF456');
+
+-- Get the vehicle IDs and insert customers
+DO $$
+DECLARE
+    honda_id UUID;
+    yamaha_id UUID;
+BEGIN
+    -- Get vehicle IDs
+    SELECT id INTO honda_id FROM vehicles WHERE vehicle_license_plate = 'ABC123';
+    SELECT id INTO yamaha_id FROM vehicles WHERE vehicle_license_plate = 'DEF456';
+    
+    -- Insert customers with vehicle references
+    INSERT INTO customers (
+        first_name, 
+        last_name, 
+        email, 
+        phone, 
+        address_street, 
+        address_city, 
+        address_postal_code, 
+        vehicle_ids
+    ) VALUES 
+        ('John', 'Doe', 'john.doe@example.com', '+46701234567', 'Main Street 123', 'Stockholm', '12345', 
+         ARRAY[honda_id]),
+        ('Jane', 'Smith', 'jane.smith@example.com', '+46701234568', 'Oak Avenue 456', 'Gothenburg', '54321', 
+         ARRAY[yamaha_id])
+    ON CONFLICT (email) DO NOTHING;
+END $$;
 
 -- Insert sample jobs
 INSERT INTO jobs (
@@ -131,7 +161,7 @@ INSERT INTO jobs (
     ((SELECT id FROM customers WHERE email = 'jane.smith@example.com'), 'repair', 'Brake system repair', 'high', NOW() + INTERVAL '2 days', 3, 'Sarah Wilson')
 ON CONFLICT DO NOTHING;
 
--- Create a view for jobs with customer information
+-- Create a view for jobs with customer and vehicle information
 CREATE OR REPLACE VIEW jobs_with_customers AS
 SELECT 
     j.*,
@@ -142,12 +172,14 @@ SELECT
     c.address_street,
     c.address_city,
     c.address_postal_code,
-    c.vehicle_make,
-    c.vehicle_model,
-    c.vehicle_year,
-    c.vehicle_license_plate
+    c.vehicle_ids,
+    v.vehicle_make,
+    v.vehicle_model,
+    v.vehicle_year,
+    v.vehicle_license_plate
 FROM jobs j
-JOIN customers c ON j.customer_id = c.id;
+JOIN customers c ON j.customer_id = c.id
+LEFT JOIN vehicles v ON v.id = ANY(c.vehicle_ids);
 
 -- Grant necessary permissions (adjust based on your Supabase setup)
 -- These are typically handled automatically by Supabase

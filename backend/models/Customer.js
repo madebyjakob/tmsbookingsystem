@@ -13,10 +13,7 @@ const customerStructure = {
   address_street: 'text', // Required
   address_city: 'text', // Required
   address_postal_code: 'text', // Required
-  vehicle_make: 'text', // Required
-  vehicle_model: 'text', // Required
-  vehicle_year: 'integer', // Required, 1900-current year
-  vehicle_license_plate: 'text', // Required, unique
+  vehicle_ids: 'uuid[]', // Array of vehicle UUIDs
   notes: 'text', // Optional, max 500 chars
   created_at: 'timestamp with time zone', // Auto-generated
   updated_at: 'timestamp with time zone' // Auto-updated
@@ -69,27 +66,6 @@ const validateCustomer = (customerData) => {
     errors.push('Postal code is required');
   }
 
-  if (!customerData.vehicle_make?.trim()) {
-    errors.push('Vehicle make is required');
-  }
-
-  if (!customerData.vehicle_model?.trim()) {
-    errors.push('Vehicle model is required');
-  }
-
-  if (!customerData.vehicle_year) {
-    errors.push('Vehicle year is required');
-  } else {
-    const currentYear = new Date().getFullYear();
-    if (customerData.vehicle_year < 1900 || customerData.vehicle_year > currentYear + 1) {
-      errors.push(`Vehicle year must be between 1900 and ${currentYear + 1}`);
-    }
-  }
-
-  if (!customerData.vehicle_license_plate?.trim()) {
-    errors.push('License plate is required');
-  }
-
   if (customerData.notes && customerData.notes.length > 500) {
     errors.push('Notes cannot exceed 500 characters');
   }
@@ -107,10 +83,7 @@ const transformToSupabase = (customerData) => {
     address_street: customerData.address?.street?.trim(),
     address_city: customerData.address?.city?.trim(),
     address_postal_code: customerData.address?.postalCode?.trim(),
-    vehicle_make: customerData.vehicleInfo?.make?.trim(),
-    vehicle_model: customerData.vehicleInfo?.model?.trim(),
-    vehicle_year: customerData.vehicleInfo?.year,
-    vehicle_license_plate: customerData.vehicleInfo?.licensePlate?.toUpperCase().trim(),
+    vehicle_ids: customerData.vehicleIds || [],
     notes: customerData.notes?.trim()
   };
 };
@@ -128,12 +101,7 @@ const transformFromSupabase = (customerData) => {
       city: customerData.address_city,
       postalCode: customerData.address_postal_code
     },
-    vehicleInfo: {
-      make: customerData.vehicle_make,
-      model: customerData.vehicle_model,
-      year: customerData.vehicle_year,
-      licensePlate: customerData.vehicle_license_plate
-    },
+    vehicleIds: customerData.vehicle_ids || [],
     notes: customerData.notes,
     createdAt: customerData.created_at,
     updatedAt: customerData.updated_at,

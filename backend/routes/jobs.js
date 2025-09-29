@@ -9,6 +9,44 @@ const {
 
 const router = express.Router();
 
+// Helper function to transform customer data with vehicles
+const transformCustomerWithVehicles = async (customerData) => {
+  const customer = {
+    id: customerData.id,
+    firstName: customerData.first_name,
+    lastName: customerData.last_name,
+    email: customerData.email,
+    phone: customerData.phone,
+    address: {
+      street: customerData.address_street,
+      city: customerData.address_city,
+      postalCode: customerData.address_postal_code
+    },
+    vehicleIds: customerData.vehicle_ids || []
+  };
+  
+  // Fetch vehicles for this customer if they exist
+  if (customerData.vehicle_ids && customerData.vehicle_ids.length > 0) {
+    try {
+      const { data: vehicles, error: vehiclesError } = await supabase
+        .from('vehicles')
+        .select('*')
+        .in('id', customerData.vehicle_ids);
+      
+      if (!vehiclesError && vehicles && vehicles.length > 0) {
+        const { transformFromSupabase: transformVehicle } = require('../models/Vehicle');
+        customer.vehicles = vehicles.map(transformVehicle);
+        // For backward compatibility, set the first vehicle as vehicleInfo
+        customer.vehicleInfo = transformVehicle(vehicles[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching vehicles for customer:', error);
+    }
+  }
+  
+  return customer;
+};
+
 // GET all jobs with pagination, filtering, and search
 router.get('/', async (req, res) => {
   try {
@@ -33,10 +71,10 @@ router.get('/', async (req, res) => {
           last_name,
           email,
           phone,
-          vehicle_make,
-          vehicle_model,
-          vehicle_year,
-          vehicle_license_plate
+          address_street,
+          address_city,
+          address_postal_code,
+          vehicle_ids
         )
       `, { count: 'exact' });
 
@@ -65,8 +103,9 @@ router.get('/', async (req, res) => {
     }
 
     // Transform data back to camelCase and format customer info
-    const transformedJobs = jobs.map(job => {
+    const transformedJobs = await Promise.all(jobs.map(async (job) => {
       const transformedJob = transformFromSupabase(job);
+      
       // Add customer info in the expected format
       transformedJob.customer = {
         id: job.customers.id,
@@ -74,15 +113,35 @@ router.get('/', async (req, res) => {
         lastName: job.customers.last_name,
         email: job.customers.email,
         phone: job.customers.phone,
-        vehicleInfo: {
-          make: job.customers.vehicle_make,
-          model: job.customers.vehicle_model,
-          year: job.customers.vehicle_year,
-          licensePlate: job.customers.vehicle_license_plate
-        }
+        address: {
+          street: job.customers.address_street,
+          city: job.customers.address_city,
+          postalCode: job.customers.address_postal_code
+        },
+        vehicleIds: job.customers.vehicle_ids || []
       };
+      
+      // Fetch vehicles for this customer if they exist
+      if (job.customers.vehicle_ids && job.customers.vehicle_ids.length > 0) {
+        try {
+          const { data: vehicles, error: vehiclesError } = await supabase
+            .from('vehicles')
+            .select('*')
+            .in('id', job.customers.vehicle_ids);
+          
+          if (!vehiclesError && vehicles && vehicles.length > 0) {
+            const { transformFromSupabase: transformVehicle } = require('../models/Vehicle');
+            transformedJob.customer.vehicles = vehicles.map(transformVehicle);
+            // For backward compatibility, set the first vehicle as vehicleInfo
+            transformedJob.customer.vehicleInfo = transformVehicle(vehicles[0]);
+          }
+        } catch (error) {
+          console.error('Error fetching vehicles for job:', error);
+        }
+      }
+      
       return transformedJob;
-    });
+    }));
 
     res.json({
       jobs: transformedJobs,
@@ -114,10 +173,7 @@ router.get('/:id', async (req, res) => {
           address_street,
           address_city,
           address_postal_code,
-          vehicle_make,
-          vehicle_model,
-          vehicle_year,
-          vehicle_license_plate
+          vehicle_ids
         )
       `)
       .eq('id', id)
@@ -147,13 +203,27 @@ router.get('/:id', async (req, res) => {
         city: job.customers.address_city,
         postalCode: job.customers.address_postal_code
       },
-      vehicleInfo: {
-        make: job.customers.vehicle_make,
-        model: job.customers.vehicle_model,
-        year: job.customers.vehicle_year,
-        licensePlate: job.customers.vehicle_license_plate
-      }
+      vehicleIds: job.customers.vehicle_ids || []
     };
+    
+    // Fetch vehicles for this customer if they exist
+    if (job.customers.vehicle_ids && job.customers.vehicle_ids.length > 0) {
+      try {
+        const { data: vehicles, error: vehiclesError } = await supabase
+          .from('vehicles')
+          .select('*')
+          .in('id', job.customers.vehicle_ids);
+        
+        if (!vehiclesError && vehicles && vehicles.length > 0) {
+          const { transformFromSupabase: transformVehicle } = require('../models/Vehicle');
+          transformedJob.customer.vehicles = vehicles.map(transformVehicle);
+          // For backward compatibility, set the first vehicle as vehicleInfo
+          transformedJob.customer.vehicleInfo = transformVehicle(vehicles[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching vehicles for job:', error);
+      }
+    }
 
     res.json(transformedJob);
   } catch (error) {
@@ -204,10 +274,10 @@ router.post('/', async (req, res) => {
           last_name,
           email,
           phone,
-          vehicle_make,
-          vehicle_model,
-          vehicle_year,
-          vehicle_license_plate
+          address_street,
+          address_city,
+          address_postal_code,
+          vehicle_ids
         )
       `)
       .single();
@@ -218,19 +288,7 @@ router.post('/', async (req, res) => {
 
     // Transform and format response
     const transformedJob = transformFromSupabase(job);
-    transformedJob.customer = {
-      id: job.customers.id,
-      firstName: job.customers.first_name,
-      lastName: job.customers.last_name,
-      email: job.customers.email,
-      phone: job.customers.phone,
-      vehicleInfo: {
-        make: job.customers.vehicle_make,
-        model: job.customers.vehicle_model,
-        year: job.customers.vehicle_year,
-        licensePlate: job.customers.vehicle_license_plate
-      }
-    };
+    transformedJob.customer = await transformCustomerWithVehicles(job.customers);
 
     res.status(201).json(transformedJob);
   } catch (error) {
@@ -296,10 +354,10 @@ router.put('/:id', async (req, res) => {
           last_name,
           email,
           phone,
-          vehicle_make,
-          vehicle_model,
-          vehicle_year,
-          vehicle_license_plate
+          address_street,
+          address_city,
+          address_postal_code,
+          vehicle_ids
         )
       `)
       .single();
@@ -323,13 +381,32 @@ router.put('/:id', async (req, res) => {
       lastName: job.customers.last_name,
       email: job.customers.email,
       phone: job.customers.phone,
-      vehicleInfo: {
-        make: job.customers.vehicle_make,
-        model: job.customers.vehicle_model,
-        year: job.customers.vehicle_year,
-        licensePlate: job.customers.vehicle_license_plate
-      }
+      address: {
+        street: job.customers.address_street,
+        city: job.customers.address_city,
+        postalCode: job.customers.address_postal_code
+      },
+      vehicleIds: job.customers.vehicle_ids || []
     };
+    
+    // Fetch vehicles for this customer if they exist
+    if (job.customers.vehicle_ids && job.customers.vehicle_ids.length > 0) {
+      try {
+        const { data: vehicles, error: vehiclesError } = await supabase
+          .from('vehicles')
+          .select('*')
+          .in('id', job.customers.vehicle_ids);
+        
+        if (!vehiclesError && vehicles && vehicles.length > 0) {
+          const { transformFromSupabase: transformVehicle } = require('../models/Vehicle');
+          transformedJob.customer.vehicles = vehicles.map(transformVehicle);
+          // For backward compatibility, set the first vehicle as vehicleInfo
+          transformedJob.customer.vehicleInfo = transformVehicle(vehicles[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching vehicles for job:', error);
+      }
+    }
 
     res.json(transformedJob);
   } catch (error) {
@@ -404,10 +481,10 @@ router.patch('/:id', async (req, res) => {
           last_name,
           email,
           phone,
-          vehicle_make,
-          vehicle_model,
-          vehicle_year,
-          vehicle_license_plate
+          address_street,
+          address_city,
+          address_postal_code,
+          vehicle_ids
         )
       `)
       .single();
@@ -431,13 +508,32 @@ router.patch('/:id', async (req, res) => {
       lastName: job.customers.last_name,
       email: job.customers.email,
       phone: job.customers.phone,
-      vehicleInfo: {
-        make: job.customers.vehicle_make,
-        model: job.customers.vehicle_model,
-        year: job.customers.vehicle_year,
-        licensePlate: job.customers.vehicle_license_plate
-      }
+      address: {
+        street: job.customers.address_street,
+        city: job.customers.address_city,
+        postalCode: job.customers.address_postal_code
+      },
+      vehicleIds: job.customers.vehicle_ids || []
     };
+    
+    // Fetch vehicles for this customer if they exist
+    if (job.customers.vehicle_ids && job.customers.vehicle_ids.length > 0) {
+      try {
+        const { data: vehicles, error: vehiclesError } = await supabase
+          .from('vehicles')
+          .select('*')
+          .in('id', job.customers.vehicle_ids);
+        
+        if (!vehiclesError && vehicles && vehicles.length > 0) {
+          const { transformFromSupabase: transformVehicle } = require('../models/Vehicle');
+          transformedJob.customer.vehicles = vehicles.map(transformVehicle);
+          // For backward compatibility, set the first vehicle as vehicleInfo
+          transformedJob.customer.vehicleInfo = transformVehicle(vehicles[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching vehicles for job:', error);
+      }
+    }
 
     res.json(transformedJob);
   } catch (error) {
@@ -485,10 +581,10 @@ router.get('/customer/:customerId', async (req, res) => {
           last_name,
           email,
           phone,
-          vehicle_make,
-          vehicle_model,
-          vehicle_year,
-          vehicle_license_plate
+          address_street,
+          address_city,
+          address_postal_code,
+          vehicle_ids
         )
       `)
       .eq('customer_id', customerId)
@@ -507,12 +603,7 @@ router.get('/customer/:customerId', async (req, res) => {
         lastName: job.customers.last_name,
         email: job.customers.email,
         phone: job.customers.phone,
-        vehicleInfo: {
-          make: job.customers.vehicle_make,
-          model: job.customers.vehicle_model,
-          year: job.customers.vehicle_year,
-          licensePlate: job.customers.vehicle_license_plate
-        }
+        vehicleIds: job.customers.vehicle_ids || []
       };
       return transformedJob;
     });
@@ -540,10 +631,10 @@ router.get('/status/:status', async (req, res) => {
           last_name,
           email,
           phone,
-          vehicle_make,
-          vehicle_model,
-          vehicle_year,
-          vehicle_license_plate
+          address_street,
+          address_city,
+          address_postal_code,
+          vehicle_ids
         )
       `, { count: 'exact' })
       .eq('status', status)
@@ -569,12 +660,7 @@ router.get('/status/:status', async (req, res) => {
         lastName: job.customers.last_name,
         email: job.customers.email,
         phone: job.customers.phone,
-        vehicleInfo: {
-          make: job.customers.vehicle_make,
-          model: job.customers.vehicle_model,
-          year: job.customers.vehicle_year,
-          licensePlate: job.customers.vehicle_license_plate
-        }
+        vehicleIds: job.customers.vehicle_ids || []
       };
       return transformedJob;
     });
@@ -620,10 +706,10 @@ router.patch('/:id/status', async (req, res) => {
           last_name,
           email,
           phone,
-          vehicle_make,
-          vehicle_model,
-          vehicle_year,
-          vehicle_license_plate
+          address_street,
+          address_city,
+          address_postal_code,
+          vehicle_ids
         )
       `)
       .single();
@@ -647,13 +733,32 @@ router.patch('/:id/status', async (req, res) => {
       lastName: job.customers.last_name,
       email: job.customers.email,
       phone: job.customers.phone,
-      vehicleInfo: {
-        make: job.customers.vehicle_make,
-        model: job.customers.vehicle_model,
-        year: job.customers.vehicle_year,
-        licensePlate: job.customers.vehicle_license_plate
-      }
+      address: {
+        street: job.customers.address_street,
+        city: job.customers.address_city,
+        postalCode: job.customers.address_postal_code
+      },
+      vehicleIds: job.customers.vehicle_ids || []
     };
+    
+    // Fetch vehicles for this customer if they exist
+    if (job.customers.vehicle_ids && job.customers.vehicle_ids.length > 0) {
+      try {
+        const { data: vehicles, error: vehiclesError } = await supabase
+          .from('vehicles')
+          .select('*')
+          .in('id', job.customers.vehicle_ids);
+        
+        if (!vehiclesError && vehicles && vehicles.length > 0) {
+          const { transformFromSupabase: transformVehicle } = require('../models/Vehicle');
+          transformedJob.customer.vehicles = vehicles.map(transformVehicle);
+          // For backward compatibility, set the first vehicle as vehicleInfo
+          transformedJob.customer.vehicleInfo = transformVehicle(vehicles[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching vehicles for job:', error);
+      }
+    }
 
     res.json(transformedJob);
   } catch (error) {
@@ -675,10 +780,10 @@ router.get('/overdue/all', async (req, res) => {
           last_name,
           email,
           phone,
-          vehicle_make,
-          vehicle_model,
-          vehicle_year,
-          vehicle_license_plate
+          address_street,
+          address_city,
+          address_postal_code,
+          vehicle_ids
         )
       `)
       .lt('scheduled_date', new Date().toISOString())
@@ -698,12 +803,7 @@ router.get('/overdue/all', async (req, res) => {
         lastName: job.customers.last_name,
         email: job.customers.email,
         phone: job.customers.phone,
-        vehicleInfo: {
-          make: job.customers.vehicle_make,
-          model: job.customers.vehicle_model,
-          year: job.customers.vehicle_year,
-          licensePlate: job.customers.vehicle_license_plate
-        }
+        vehicleIds: job.customers.vehicle_ids || []
       };
       return transformedJob;
     });

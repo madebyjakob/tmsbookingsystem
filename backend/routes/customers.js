@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
 
     // Add search functionality
     if (search) {
-      query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,vehicle_license_plate.ilike.%${search}%`);
+      query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`);
     }
 
     // Add sorting
@@ -37,8 +37,31 @@ router.get('/', async (req, res) => {
       throw error;
     }
 
-    // Transform data back to camelCase
-    const transformedCustomers = customers.map(transformFromSupabase);
+    // Transform data back to camelCase and fetch vehicles for each customer
+    const transformedCustomers = await Promise.all(
+      customers.map(async (customer) => {
+        const transformedCustomer = transformFromSupabase(customer);
+        
+        // Fetch vehicles for this customer
+        if (customer.vehicle_ids && customer.vehicle_ids.length > 0) {
+          try {
+            const { data: vehicles, error: vehiclesError } = await supabase
+              .from('vehicles')
+              .select('*')
+              .in('id', customer.vehicle_ids);
+            
+            if (!vehiclesError && vehicles) {
+              const { transformFromSupabase: transformVehicle } = require('../models/Vehicle');
+              transformedCustomer.vehicles = vehicles.map(transformVehicle);
+            }
+          } catch (error) {
+            console.error('Error fetching vehicles for customer:', error);
+          }
+        }
+        
+        return transformedCustomer;
+      })
+    );
 
     res.json({
       customers: transformedCustomers,
@@ -75,6 +98,24 @@ router.get('/:id', async (req, res) => {
     }
 
     const transformedCustomer = transformFromSupabase(customer);
+    
+    // Fetch vehicles for this customer
+    if (customer.vehicle_ids && customer.vehicle_ids.length > 0) {
+      try {
+        const { data: vehicles, error: vehiclesError } = await supabase
+          .from('vehicles')
+          .select('*')
+          .in('id', customer.vehicle_ids);
+        
+        if (!vehiclesError && vehicles) {
+          const { transformFromSupabase: transformVehicle } = require('../models/Vehicle');
+          transformedCustomer.vehicles = vehicles.map(transformVehicle);
+        }
+      } catch (error) {
+        console.error('Error fetching vehicles for customer:', error);
+      }
+    }
+    
     res.json(transformedCustomer);
   } catch (error) {
     console.error('Error fetching customer:', error);
@@ -249,25 +290,108 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// GET customers by vehicle make/model
-router.get('/vehicle/:make/:model', async (req, res) => {
+// GET customers with their vehicles
+router.get('/:id/vehicles', async (req, res) => {
   try {
-    const { make, model } = req.params;
+    const { id } = req.params;
     
-    const { data: customers, error } = await supabase
+    // Get customer with vehicle details
+    const { data: customer, error: customerError } = await supabase
       .from(customerTable)
       .select('*')
-      .ilike('vehicle_make', `%${make}%`)
-      .ilike('vehicle_model', `%${model}%`);
+      .eq('id', id)
+      .single();
 
-    if (error) {
-      throw error;
+    if (customerError) {
+      if (customerError.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Customer not found' });
+      }
+      throw customerError;
     }
 
-    const transformedCustomers = customers.map(transformFromSupabase);
-    res.json(transformedCustomers);
+    if (!customer.vehicle_ids || customer.vehicle_ids.length === 0) {
+      return res.json({ vehicles: [] });
+    }
+
+    // Get vehicle details
+    const { data: vehicles, error: vehiclesError } = await supabase
+      .from('vehicles')
+      .select('*')
+      .in('id', customer.vehicle_ids);
+
+    if (vehiclesError) {
+      throw vehiclesError;
+    }
+
+    // Transform vehicle data
+    const { transformFromSupabase: transformVehicle } = require('../models/Vehicle');
+    const transformedVehicles = vehicles.map(transformVehicle);
+
+    res.json({ vehicles: transformedVehicles });
   } catch (error) {
-    console.error('Error fetching customers by vehicle:', error);
+    console.error('Error fetching customer vehicles:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST add vehicle to customer
+router.post('/:id/vehicles', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const vehicleData = req.body;
+
+    // Validate vehicle data
+    const { validateVehicle, transformToSupabase: transformVehicle } = require('../models/Vehicle');
+    const validationErrors = validateVehicle(vehicleData);
+    if (validationErrors.length > 0) {
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: validationErrors 
+      });
+    }
+
+    // Create vehicle
+    const supabaseVehicleData = transformVehicle(vehicleData);
+    const { data: newVehicle, error: vehicleError } = await supabase
+      .from('vehicles')
+      .insert([supabaseVehicleData])
+      .select()
+      .single();
+
+    if (vehicleError) {
+      if (vehicleError.code === '23505') { // Unique constraint violation
+        return res.status(409).json({ error: 'Vehicle with this license plate already exists' });
+      }
+      throw vehicleError;
+    }
+
+    // Add vehicle ID to customer's vehicle_ids array
+    const { data: customer, error: customerError } = await supabase
+      .from(customerTable)
+      .select('vehicle_ids')
+      .eq('id', id)
+      .single();
+
+    if (customerError) {
+      throw customerError;
+    }
+
+    const updatedVehicleIds = [...(customer.vehicle_ids || []), newVehicle.id];
+    
+    const { error: updateError } = await supabase
+      .from(customerTable)
+      .update({ vehicle_ids: updatedVehicleIds })
+      .eq('id', id);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    // Transform and return the new vehicle
+    const { transformFromSupabase: transformVehicleFromSupabase } = require('../models/Vehicle');
+    res.status(201).json(transformVehicleFromSupabase(newVehicle));
+  } catch (error) {
+    console.error('Error adding vehicle to customer:', error);
     res.status(500).json({ error: error.message });
   }
 });

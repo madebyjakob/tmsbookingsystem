@@ -66,30 +66,71 @@ export default function CustomerForm({ onSubmit, onClose, saving = false, initia
     }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    const payload = {
-      firstName: formData.firstName?.trim(),
-      lastName: formData.lastName?.trim(),
-      email: formData.email?.trim(),
-      phone: formData.phone?.trim(),
-      address: {
-        street: formData.addressStreet?.trim(),
-        city: formData.addressCity?.trim(),
-        postalCode: formData.addressPostalCode?.trim()
-      },
-      // For backend compatibility today, send only the first vehicle
-      vehicleInfo: (() => {
-        const v = formData.vehicles?.[0] || {}
-        return {
-          make: v.make?.trim(),
-          model: v.model?.trim(),
-          year: v.year ? parseInt(v.year, 10) : undefined,
-          licensePlate: v.licensePlate?.toUpperCase().trim()
+    
+    try {
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+      
+      // First create the customer
+      const customerPayload = {
+        firstName: formData.firstName?.trim(),
+        lastName: formData.lastName?.trim(),
+        email: formData.email?.trim(),
+        phone: formData.phone?.trim(),
+        address: {
+          street: formData.addressStreet?.trim(),
+          city: formData.addressCity?.trim(),
+          postalCode: formData.addressPostalCode?.trim()
+        },
+        vehicleIds: [] // Start with empty array
+      }
+      
+      // Create customer
+      const customerResponse = await fetch(`${baseUrl}/customers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(customerPayload)
+      })
+      
+      if (!customerResponse.ok) {
+        const errorData = await customerResponse.json()
+        throw new Error(errorData.error || 'Failed to create customer')
+      }
+      
+      const newCustomer = await customerResponse.json()
+      
+      // Create vehicles and add them to customer
+      for (const vehicle of formData.vehicles || []) {
+        if (vehicle.make?.trim() && vehicle.model?.trim() && vehicle.year?.trim() && vehicle.licensePlate?.trim()) {
+          const vehicleData = {
+            make: vehicle.make.trim(),
+            model: vehicle.model.trim(),
+            year: vehicle.year.toString().trim(),
+            licensePlate: vehicle.licensePlate.toUpperCase().trim()
+          }
+          
+          try {
+            const vehicleResponse = await fetch(`${baseUrl}/customers/${newCustomer.id}/vehicles`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(vehicleData)
+            })
+            
+            if (!vehicleResponse.ok) {
+              console.warn('Failed to add vehicle to customer:', vehicleData)
+            }
+          } catch (vehicleError) {
+            console.warn('Error adding vehicle to customer:', vehicleError)
+          }
         }
-      })()
+      }
+      
+      onSubmit?.(newCustomer)
+    } catch (error) {
+      console.error('Error creating customer with vehicles:', error)
+      alert('Failed to create customer: ' + error.message)
     }
-    onSubmit?.(payload)
   }
 
   return (
@@ -171,7 +212,7 @@ export default function CustomerForm({ onSubmit, onClose, saving = false, initia
                     </div>
                   ))}
                 </div>
-                <div className="text-xs text-black/60 mt-1">Note: Only the first vehicle will be used when creating a customer right now.</div>
+                <div className="text-xs text-black/60 mt-1">All vehicles will be created and associated with the customer.</div>
               </div>
             </div>
 

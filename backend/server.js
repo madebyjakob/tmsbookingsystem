@@ -5,14 +5,15 @@ const morgan = require('morgan');
 require('dotenv').config();
 
 console.log('Environment check:', {
-  SUPABASE_URL: process.env.VITE_SUPABASE_URL ? 'Set' : 'Missing',
-  SUPABASE_SERVICE_ROLE_KEY: process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Missing',
-  SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Missing'
+  SUPABASE_URL: process.env.SUPABASE_URL ? 'Set' : 'Missing',
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Missing',
+  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ? 'Set' : 'Missing'
 });
 
 const { testConnection } = require('./config/supabase');
 const errorHandler = require('./middleware/errorHandler');
 const customerRoutes = require('./routes/customers');
+const vehicleRoutes = require('./routes/vehicles');
 const jobRoutes = require('./routes/jobs');
 
 const app = express();
@@ -30,6 +31,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/customers', customerRoutes);
+app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/jobs', jobRoutes);
 
 // Health check route
